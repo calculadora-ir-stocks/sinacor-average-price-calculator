@@ -1,7 +1,9 @@
 import io
 import os
+import re
 from correpy.parsers.brokerage_notes.parser_factory import ParserFactory
 
+## Altere a senha do PDF aqui. Geralmente são os últimos 3 dígitos do CPF do investidor.
 PDF_PASSWORD = '910'
 
 class Ticker:
@@ -31,6 +33,15 @@ def get_ticker_from_list(ticker, tickers) -> Ticker:
      
     return None
 
+# As notas de corretagem da B3 não são padronizadas (assim como tudo o que eles fazem).
+# Por isso, é necessário: remover espaços em branco extras; e obter apenas as duas primeiras palavras de um ativo, pois o mesmo
+# ativo pode ter nomes diferentes. O BOVA 11, por exemplo, pode ser ISHARES BOVA ATZ ou ISHARES BOVA.
+def clean_string(s):
+    white_space_removed = re.sub(r'\s+', ' ', s).strip()  # Remove espaços extras
+    words = white_space_removed.split()
+    return ' '.join(words[:2])  # Retorna apenas as duas primeiras palavras
+
+
 # Itera todos os arquivos em /files e calcula o preço médio, o total gasto e a quantidade de todos os ativos negociados
 # e os armazena em tickers[].
 tickers = []
@@ -44,26 +55,27 @@ for file in os.listdir(directory):
         content.seek(0)
 
         response = ParserFactory(brokerage_note=content, password=PDF_PASSWORD).parse()
-        transactions = response[0].transactions
 
-        for t in transactions:
-            ticker = get_ticker_from_list(t.security.name, tickers)
+        for transaction in response:
+            for t in transaction.transactions:
+              ticker = get_ticker_from_list(clean_string(t.security.name), tickers)
+              print('Processando ativo ' +  clean_string(t.security.name))
 
-            match t.transaction_type.name:
-                case 'BUY':
-                    if (ticker is None):
-                        tickers.append(Ticker(t.security.name, (t.unit_price * t.amount), t.amount))
-                        continue
-                    ticker.update_for_buy((t.unit_price * t.amount), t.amount)
-                case 'SELL':
-                    if (ticker.amount == 0): 
-                        tickers.remove(ticker)
-                        continue
-                    ticker.update_for_sell((t.unit_price * t.amount), t.amount)
+              match t.transaction_type.name:
+                  case 'BUY':
+                      if (ticker is None):
+                          tickers.append(Ticker(clean_string(t.security.name), (t.unit_price * t.amount), t.amount))
+                          continue
+                      ticker.update_for_buy((t.unit_price * t.amount), t.amount)
+                  case 'SELL':
+                      if (ticker.amount == 0): 
+                          tickers.remove(ticker)
+                          continue
+                      ticker.update_for_sell(t.amount)
 
 for t in tickers:
     print('\n')
-    print('Ticker: ' + t.ticker)
-    print('Total gasto: ' + str(t.total_cost))
-    print('Quantidade: ' + str(t.amount))
-    print('Preço médio: ' + str(t.average_traded_price))
+    print('\033[31mTicker\033[0m: ' + t.ticker)
+    print('\033[32mTotal gasto\033[0m: ' + str(t.total_cost))
+    print('\033[31mQuantidade\033[0m: ' + str(t.amount))
+    print('\033[32mPreço médio\033[0m: ' + str(t.average_traded_price))
