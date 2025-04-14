@@ -6,6 +6,9 @@ from correpy.parsers.brokerage_notes.parser_factory import ParserFactory
 ## Altere a senha do PDF aqui. Geralmente são os últimos 3 dígitos do CPF do investidor.
 PDF_PASSWORD = '910'
 
+## Altere o caminho das notas de corretagem aqui.
+brokerage_notes_path = "C:\\Users\\gusta\\Documents\\Notas de corretagem\\"
+
 class Ticker:
     def __init__(self, ticker, total_cost, amount):
         self.ticker = ticker
@@ -46,10 +49,10 @@ def clean_string(s):
 # e os armazena em tickers[].
 tickers = []
 
-directory = os.fsencode('files/')
+directory = os.fsencode(brokerage_notes_path)
 for file in os.listdir(directory):
     filename = os.fsdecode(file)
-    with open('files/' + filename, 'rb') as f:
+    with open(brokerage_notes_path + filename, 'rb') as f:
 
         content = io.BytesIO(f.read())
         content.seek(0)
